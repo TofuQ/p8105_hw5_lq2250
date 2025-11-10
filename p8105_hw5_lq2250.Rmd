@@ -1,0 +1,69 @@
+---
+title: "p8105_hw5_lq2250"
+author: "Lanlan_Qing"
+date: "2025-11-10"
+output: github_document
+---
+
+## Initial Settings
+```{r}
+library(tidyverse)
+library(rvest)
+library(plotly)
+
+knitr::opts_chunk$set(
+  fig.width = 6,
+  fig.asp = .6,
+  out.width = "90%"
+)
+
+theme_set(theme_minimal() + theme(legend.position = "bottom"))
+
+options(
+  ggplot2.continuous.colour = "viridis",
+  ggplot2.continuous.fill = "viridis"
+)
+
+scale_colour_discrete = scale_colour_viridis_d
+scale_fill_discrete = scale_fill_viridis_d
+```
+
+## Problem 1
+
+**Uniform Distribution Function**
+
+```{r}
+# Make the function for returning logistic values for P(X>=2)
+birth_uniform = function(n) {
+  sample = sample(365, n, replace = TRUE) # randomize birthday samples from 365 days
+  n_obs_max = max(table(sample)) # find the mode (represents the highest repeated number)
+  n_obs_max >= 2 # return TRUE if appear more than twice
+}
+```
+
+**Make the data frame and plot**
+```{r}
+# Make the data frame of group size 2:50 that iterate 10000 times each
+birth_df = replicate(10000, map_lgl(2:50, birth_uniform)) |>
+  as.data.frame() |>  # convert matrix to data frame
+  mutate(group_size = as.factor(2:50)) |>  # add indicate column for size
+  relocate(group_size) |>
+  pivot_longer(
+    "V1":"V10000",
+    names_to = "iteration",
+    values_to = "judgement"
+  ) |>
+  select(-iteration) |>
+  group_by(group_size, judgement) |> 
+  summarise(n_judge = n()) |> # count #TRUE and #FALSE for each group size
+  mutate(prob = as.numeric(n_judge/10000), # transfer #observation to prob
+         group_size = fct_inorder(str_c("group size = ", group_size))) # Rename group_size
+
+  
+
+# Make a plot showing prob ~ group size
+birth_plot = birth_df |>
+  plot_ly(x = ~group_size, y= ~prob, color = ~judgement, type = "bar")
+```
+**Comment**
+This is a good simulation result. When group size turns to be small(<23), it is less likely that there are more than two people share the same birthday(FALSE more). As group size increasing (>=23), the probability of people's birthday dates tend to be the same becomes larger(TRUE more). This totally makes sense since there are 365 days. The possibility of given birth at the same day should increases with larger group size.
