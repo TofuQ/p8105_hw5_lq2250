@@ -10,6 +10,7 @@ output: github_document
 library(tidyverse)
 library(rvest)
 library(plotly)
+library(broom)
 
 knitr::opts_chunk$set(
   fig.width = 6,
@@ -67,3 +68,92 @@ birth_plot = birth_df |>
 ```
 **Comment**
 This is a good simulation result. When group size turns to be small(<23), it is less likely that there are more than two people share the same birthday(FALSE more). As group size increasing (>=23), the probability of people's birthday dates tend to be the same becomes larger(TRUE more). This totally makes sense since there are 365 days. The possibility of given birth at the same day should increases with larger group size.
+
+## Problem 2
+
+1. **Make Normal Function**
+```{r}
+t_test_func = function(miu){
+  sample = rnorm(30, mean = miu, sd = 5) # Generate samples(n=30) from normal distribution N(0,25)
+  t.test(sample, alternative = "two.sided", mu = 0, paired = FALSE, conf.level = 0.95) 
+  # T-test of each group of samples by two.sided test
+}
+```
+
+2. **Clean the results and keep necessities**
+```{r}
+# Generate 5000 times for each miu
+t_test_results = map_dfr(1:6, function(miu) {  
+  replicate(5000, t_test_func(miu)) |>  # each miu iterate for 5000 times
+    map_dfr(broom::tidy) |>  # transfer to data frame
+    mutate(miu = miu)  
+}) |>  # add column indicating the miu
+  relocate(miu) |> 
+  select(miu, estimate, p.value) |>
+
+# Reject null if p<0.05
+  mutate(reject_null = p.value < 0.05) |>
+  select(-p.value)
+
+```
+
+**Clean data for first plot (miu ~ power)**
+```{r}
+power_df = t_test_results |>
+  group_by(miu) |>
+# Calculate effect size by miu group
+  summarize(mean = mean(estimate),
+            s = sd(estimate),
+            effect_size = abs(mean)/s,
+            power = mean(reject_null),
+            reject_null,
+            miu) |>
+  ungroup() |>
+  select(-reject_null) |>
+  distinct()
+```
+
+**Make Plot!**
+```{r}
+power_plot <- ggplot(power_df, aes(x = miu, y = power)) +
+  geom_point(size = 3) +
+  geom_line()
+```
+**Comment**\
+The larger the true mean (effect size), the closer the test power is to 1(the easier it is to reject the null hypothesis).
+
+3. **
+```{r}
+# Data for all miu_hat
+est_df1 = t_test_results |>
+  group_by(miu) |>
+  summarize(mean = mean(estimate),
+            group = "All")
+
+# Data for rejected miu_hat
+est_df2 = t_test_results |>
+  filter(reject_null == TRUE) |>
+  group_by(miu) |>
+  summarize(mean = mean(estimate),
+            group = "Reject")
+
+# Combine two datasets
+mean_est_df = rbind(est_df1, est_df2)
+
+# Make plot
+mean_est_plot = ggplot(mean_est_df, aes(x = miu, y = mean, color = group)) +
+  geom_point(size = 3) +
+  geom_line()+
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed")+
+  labs(
+    x = "True Mean",
+    y = "Mean of Estimate Sample Mean"
+  )
+```
+**Comments**
+- For all samples, the average estimated mean $\hat{\mu}$ is approximately equal to the true $\mu$ (almost overlap with the reference line y=x), which demonstrates the unbiasedness of the sample mean.
+
+- For samples that reject the null hypothesis, $\hat{\mu}$ is also approximately equal to the true μ. Because the inference of the t-test is "whether there is sufficient evidence to reject H0", and the unbiasedness of the estimator does not rely on the results of the hypothesis test. Even if only the samples that reject H0 are considered, the average estimate can still accurately reflect the true parameters.
+
+
+
