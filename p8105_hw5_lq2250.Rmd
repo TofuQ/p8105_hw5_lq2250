@@ -65,8 +65,20 @@ birth_df = replicate(10000, map_lgl(2:50, birth_uniform)) |>
   
 
 # Make a plot showing prob ~ group size
-birth_plot = birth_df |>
-  plot_ly(x = ~group_size, y= ~prob, color = ~judgement, type = "bar")
+library(ggplot2)
+
+birth_plot <- birth_df |>
+  ggplot(aes(x = group_size, y = prob, fill = judgement)) +
+  geom_col(position = "dodge") +
+  labs(
+    x = "Group Size",
+    y = "Probability",
+    fill = "Judgement"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
 
 print(birth_plot)
 ```
